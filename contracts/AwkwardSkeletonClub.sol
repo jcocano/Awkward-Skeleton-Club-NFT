@@ -9,6 +9,12 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 
 contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
+    
+    using Strings for uint256;
+    using Counters for Counters.Counter;
+
+    Counters.Counter private supply;
+
     //Roles
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant COMMUNITY_ROLE = keccak256("COMMUNITY_ROLE");
@@ -27,8 +33,14 @@ contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
     bool public paused = true;
     bool public revealed = false;
 
-    constructor() ERC721("AwkwardSkeletonClub", "ASC") {
+    constructor(
+        string memory _initBaseURI,
+        string memory _initNotRevealedUri
+    ) ERC721("AwkwardSkeletonClub", "ASC") {
         _grantRole(ADMIN_ROLE, msg.sender);
+
+        setBaseURI(_initBaseURI);
+        setNotRevealedURI(_initNotRevealedUri);
 
     }
 
@@ -42,6 +54,12 @@ contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
         _;
     }
 
+    modifier mintConditional(uint256 _mintAmount ){
+        require(_mintAmount > 0 && _mintAmount <= maxMintAmount, "Wrong amount of mint, must be between 1 and 10");
+        require(supply.current() + _mintAmount <= maxSupply, "Max Supply exeded!");
+        _;
+    }
+
     //Roles
     function addRole(bytes32 role, address account) public onlyAdmin {
         _grantRole(role, account);
@@ -52,8 +70,19 @@ contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
     }
 
     //functions
-    function reveal() public onlyAdmin {
-        revealed = true;
+    function mint(uint256 _mintAmount) public payable mintConditional(_mintAmount){
+        require(!paused,"ASC is on Pause!");
+        require(msg.value >= cost * _mintAmount, "Insufficient funds!");
+
+        _mintFunction(msg.sender, _mintAmount);
+    }
+
+    function givaweyMint(uint256 _mintAmount, address _reciver) public mintConditional(_mintAmount) onlyCommunity{
+        _mintFunction(_reciver, _mintAmount);
+    } 
+
+    function reveal(bool _newState) public onlyAdmin {
+        revealed = _newState;
     }
 
     function setCost(uint256 _newCost) public onlyAdmin {
@@ -64,12 +93,30 @@ contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
         maxMintAmount = _newmaxMintAmount;
     }
 
+    function setBaseExtension(string memory _newBaseExtension)
+        public
+        onlyAdmin
+    {
+        baseExtension = _newBaseExtension;
+    }
+
+    function setBaseURI(string memory _newBaseURI) public onlyAdmin {
+        baseURI = _newBaseURI;
+    }
+
     function setNotRevealedURI(string memory _notRevealedURI) public onlyAdmin {
         notRevealedUri = _notRevealedURI;
     }
     
     function pause(bool _state) public onlyAdmin {
         paused = _state;
+    }
+
+    function _mintFunction(address _reciver, uint256 _mintAmount) internal {
+        for (uint256 i = 0; i < _mintAmount; i++) {
+        supply.increment();
+        _safeMint(_reciver, supply.current());
+        }
     }
 
     //Overide Interface
