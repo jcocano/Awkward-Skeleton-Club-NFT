@@ -7,28 +7,29 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
+
 contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
-
-    using Strings for uint256;
-
-
     //Roles
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant COMMUNITY_ROLE = keccak256("COMMUNITY_ROLE");
 
     //Vars
-    string baseURI;
+
+    string public baseURI;
     string public baseExtension = ".json";
-    uint256 public cost = 0.03 ether;
-    uint256 public maxSupply = 7373;
-    uint256 public maxMintAmount = 10;
-    bool public paused = false;
-    bool public revealed = false;
     string public notRevealedUri;
 
-    constructor(uint256 _maxSupply) ERC721("AwkwardSkeletonClub", "ASC") {
+    uint256 public cost = 0.04 ether;
+    uint256 public whiteListCost = 0.03 ether;
+    uint256 public maxSupply = 7373;
+    uint256 public maxMintAmount = 10;
+
+    bool public paused = true;
+    bool public revealed = false;
+
+    constructor() ERC721("AwkwardSkeletonClub", "ASC") {
         _grantRole(ADMIN_ROLE, msg.sender);
-        
+
     }
 
     //Modifiers
@@ -41,14 +42,6 @@ contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
         _;
     }
 
-    //Functions
-    function mint() public{
-
-        _safeMint(msg.sender, tokenId);
-    }
-
-    
-
     //Roles
     function addRole(bytes32 role, address account) public onlyAdmin {
         _grantRole(role, account);
@@ -58,8 +51,28 @@ contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
        _revokeRole(role, account);
     }
 
-    //Overide Interface
+    //functions
+    function reveal() public onlyAdmin {
+        revealed = true;
+    }
 
+    function setCost(uint256 _newCost) public onlyAdmin {
+        cost = _newCost;
+    }
+
+    function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyAdmin {
+        maxMintAmount = _newmaxMintAmount;
+    }
+
+    function setNotRevealedURI(string memory _notRevealedURI) public onlyAdmin {
+        notRevealedUri = _notRevealedURI;
+    }
+    
+    function pause(bool _state) public onlyAdmin {
+        paused = _state;
+    }
+
+    //Overide Interface
     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
         internal
         override(ERC721, ERC721Enumerable)
