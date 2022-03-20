@@ -22,7 +22,8 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
         Reveal
     }
 
-    string public baseURI;
+    string private baseURI;
+    string public hiddenURI;
 
     Phase public salesPhase;
 
@@ -47,11 +48,13 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
         address[] memory _team,
         uint[] memory _teamShares,
         bytes32 _merkleRoot, 
-        string memory _baseURI
+        string memory _baseURI,
+        string memory _hiddenURI
     ) ERC721A ("Awkward Skeleton Club", "ASC")
       PaymentSplitter(_team, _teamShares){
         merkleRoot = _merkleRoot;
         baseURI = _baseURI;
+        hiddenURI = _hiddenURI;
         teamLength = _team.length;
     }
 
@@ -61,19 +64,19 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
     }
 
     modifier mintCompliance(uint256 _mintAmmount) {
-    require(_mintAmmount > 0 && _mintAmmount <= MAXMINTPERTX, 'Mint must be greater than 0 and at most 10!');
-    require(totalSupply() + _mintAmmount <= MAXSUPPLY, 'Max supply exceeded!');
+    require(_mintAmmount > 0 && _mintAmmount <= MAXMINTPERTX, "ASC: Mint must be greater than 0 and at most 10!");
+    require(totalSupply() + _mintAmmount <= MAXSUPPLY, "ASC: Max supply exceeded!");
     _;
     }
 
     //Mint
     function whiteListMint(uint256 _mintAmmount, bytes32[] calldata _proof) external payable mintCompliance(_mintAmmount) callerIsUser{
         uint256 price = wlprice;
-        require(price != 0, "Price is 0");
-        require(salesPhase == Phase.Whitelist, "Whitelist sale is not activated");
-        require(msg.value >= price * _mintAmmount, "Not enought funds");
-        require(!paused, 'The contract is paused!');
-        require(isWhiteListed(msg.sender, _proof), "Not whitelisted");
+        require(price != 0, "ASC: Price must be greater that 0");
+        require(salesPhase == Phase.Whitelist, "ASC: Whitelist sale is not activated");
+        require(msg.value >= price * _mintAmmount, "You don't have enought funds");
+        require(!paused, "ASC contract is paused!");
+        require(isWhiteListed(msg.sender, _proof), "ASC: You'r not whitelisted");
 
         totalWhitelistMint[msg.sender] += _mintAmmount;
         _safeMint(msg.sender, _mintAmmount);
@@ -81,10 +84,10 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
 
     function publicMint(uint256 _mintAmmount) external payable mintCompliance(_mintAmmount) callerIsUser{
         uint256 price = pubprice;
-        require(price != 0, "Price is 0");
-        require(salesPhase == Phase.Public, "Public sale is not activated");
-        require(msg.value >= price * _mintAmmount, "Not enought funds");
-        require(!paused, 'The contract is paused!');
+        require(price != 0, "ASC: Price must be greater that 0");
+        require(salesPhase == Phase.Public, "ASC: Public sale is not activated");
+        require(msg.value >= price * _mintAmmount, "You don't have enought funds");
+        require(!paused, "ASC contract is paused!");
 
         totalPublicMint[msg.sender] += _mintAmmount;
         _safeMint(msg.sender, _mintAmmount);
@@ -95,12 +98,63 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
     }
 
     //Miscellaneous
+    function walletOfOwner(address _owner) public view returns (uint256[] memory) {
+    uint256 ownerTokenCount = balanceOf(_owner);
+    uint256[] memory ownedTokenIds = new uint256[](ownerTokenCount);
+    uint256 currentTokenId = _startTokenId();
+    uint256 ownedTokenIndex = 0;
+    address latestOwnerAddress;
+
+    while (ownedTokenIndex < ownerTokenCount && currentTokenId <= MAXSUPPLY) {
+    TokenOwnership memory ownership = _ownerships[currentTokenId];
+
+    if (!ownership.burned && ownership.addr != address(0)) {
+        latestOwnerAddress = ownership.addr;
+    }
+
+    if (latestOwnerAddress == _owner) {
+        ownedTokenIds[ownedTokenIndex] = currentTokenId;
+
+        ownedTokenIndex++;
+        }
+
+      currentTokenId++;
+    }
+
+    return ownedTokenIds;
+    }
+
+    function _startTokenId() internal view virtual override returns (uint256) {
+    return 1;
+    }
+
     function selectPhase(uint _phase) external onlyOwner{
         salesPhase = Phase(_phase);
     }
 
     function setPaused(bool _state) public onlyOwner {
         paused = _state;
+    }
+
+    function setBaseUri(string memory _baseURI) external onlyOwner {
+        baseURI = _baseURI;
+    }
+
+    function setHiddenMetadataUri(string memory _hiddenURI) public onlyOwner {
+        hiddenURI = _hiddenURI;
+    }
+
+    function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
+    require(_exists(_tokenId), "ERC721Metadata: URI query for nonexistent token");
+
+    if (revealed == false) {
+      return hiddenURI;
+    } 
+
+    string memory currentBaseURI = _baseURI();
+    return bytes(currentBaseURI).length > 0
+        ? string(abi.encodePacked(currentBaseURI, _tokenId.toString(), ".json"))
+        : '';
     }
 
     function setRevealed(bool _state) public onlyOwner {
