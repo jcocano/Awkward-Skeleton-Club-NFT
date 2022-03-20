@@ -15,7 +15,7 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
 
     using Strings for uint;
 
-    enum phase {
+    enum Phase {
         Whitelist,
         Public,
         SoldOut,
@@ -24,16 +24,15 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
 
     string public baseURI;
 
-    phase public salesPhase;
+    Phase public salesPhase;
 
     uint private constant MAXSUPPLY = 7373;
     uint private constant MAXMINTPERTX = 10;
 
     uint public wlprice = 0.03 ether;
-    uint public price = 0.04 ether;
+    uint public pubprice = 0.04 ether;
 
     bool public paused = true;
-    bool public whitelistMint = false;
     bool public revealed = false;
 
 
@@ -69,11 +68,26 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
 
     //Mint
     function whiteListMint(uint256 _mintAmmount, bytes32[] calldata _proof) external payable mintCompliance(_mintAmmount) callerIsUser{
-        //TBW
+        uint256 price = wlprice;
+        require(price != 0, "Price is 0");
+        require(salesPhase == Phase.Whitelist, "Whitelist sale is not activated");
+        require(msg.value >= price * _mintAmmount, "Not enought funds");
+        require(!paused, 'The contract is paused!');
+        require(isWhiteListed(msg.sender, _proof), "Not whitelisted");
+
+        totalWhitelistMint[msg.sender] += _mintAmmount;
+        _safeMint(msg.sender, _mintAmmount);
     }
 
-    function publicMint(uint256 _mintAmmount, bytes32[] calldata _proof) external payable mintCompliance(_mintAmmount) callerIsUser{
-        //TBW
+    function publicMint(uint256 _mintAmmount) external payable mintCompliance(_mintAmmount) callerIsUser{
+        uint256 price = pubprice;
+        require(price != 0, "Price is 0");
+        require(salesPhase == Phase.Public, "Public sale is not activated");
+        require(msg.value >= price * _mintAmmount, "Not enought funds");
+        require(!paused, 'The contract is paused!');
+
+        totalPublicMint[msg.sender] += _mintAmmount;
+        _safeMint(msg.sender, _mintAmmount);
     }
 
     function givaweyMint(uint256 _mintAmmount, address _reciver) public mintCompliance(_mintAmmount) onlyOwner{
@@ -82,7 +96,7 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
 
     //Miscellaneous
     function selectPhase(uint _phase) external onlyOwner{
-        salesPhase = phase(_phase);
+        salesPhase = Phase(_phase);
     }
 
     function setPaused(bool _state) public onlyOwner {
