@@ -1,138 +1,120 @@
-// SPDX-License-Identifier: MIT 
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.12;
 
-pragma solidity >=0.7.0 <0.9.0;
+//Author: Block3 (@ferduhart, @richgtz)
+//Developper: Jesus Cocaño (@jcocano)
+//Tittle: Awkward Skeleton Club NFT
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/finance/PaymentSplitter.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "erc721a/contracts/ERC721A.sol";
 
+contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
 
-contract AwkwardSkeletonClub is AccessControl, ERC721, ERC721Enumerable{
-    
-    using Strings for uint256;
-    using Counters for Counters.Counter;
+    using Strings for uint;
 
-    Counters.Counter private supply;
-
-    //Roles
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant COMMUNITY_ROLE = keccak256("COMMUNITY_ROLE");
-
-    //Vars
+    enum phase {
+        Whitelist,
+        Public,
+        SoldOut,
+        Reveal
+    }
 
     string public baseURI;
-    string public baseExtension = ".json";
-    string public notRevealedUri;
 
-    uint256 public cost = 0.04 ether;
-    uint256 public whiteListCost = 0.03 ether;
-    uint256 public maxSupply = 7373;
-    uint256 public maxMintAmount = 10;
+    phase public salesPhase;
+
+    uint private constant MAXSUPPLY = 7373;
+    uint private constant MAXMINTPERTX = 10;
+
+    uint public wlprice = 0.03 ether;
+    uint public price = 0.04 ether;
 
     bool public paused = true;
+    bool public whitelistMint = false;
     bool public revealed = false;
 
+
+    bytes32 public merkleRoot;
+
+    mapping(address => uint256) public totalPublicMint;
+    mapping(address => uint256) public totalWhitelistMint;
+
+    uint private teamLength;
+
     constructor(
-        string memory _initBaseURI,
-        string memory _initNotRevealedUri
-    ) ERC721("AwkwardSkeletonClub", "ASC") {
-        _grantRole(ADMIN_ROLE, msg.sender);
-
-        setBaseURI(_initBaseURI);
-        setNotRevealedURI(_initNotRevealedUri);
-
+        address[] memory _team,
+        uint[] memory _teamShares,
+        bytes32 _merkleRoot, 
+        string memory _baseURI
+    ) ERC721A ("Awkward Skeleton Club", "ASC")
+      PaymentSplitter(_team, _teamShares){
+        merkleRoot = _merkleRoot;
+        baseURI = _baseURI;
+        teamLength = _team.length;
     }
 
-    //Modifiers
-    modifier onlyAdmin(){
-        require(hasRole(ADMIN_ROLE, msg.sender), "This function can only be used by the admin");
-        _;
-    }
-    modifier onlyCommunity(){
-        require(hasRole(COMMUNITY_ROLE, msg.sender), "This function can only be used by commuty wallet");
+    modifier callerIsUser() {
+        require(tx.origin == msg.sender, "Cannot be called from another contract");
         _;
     }
 
-    modifier mintConditional(uint256 _mintAmount ){
-        require(_mintAmount > 0 && _mintAmount <= maxMintAmount, "Wrong amount of mint, must be between 1 and 10");
-        require(supply.current() + _mintAmount <= maxSupply, "Max Supply exeded!");
-        _;
+    modifier mintCompliance(uint256 _mintAmmount) {
+    require(_mintAmmount > 0 && _mintAmmount <= MAXMINTPERTX, 'Mint must be greater than 0 and at most 10!');
+    require(totalSupply() + _mintAmmount <= MAXSUPPLY, 'Max supply exceeded!');
+    _;
     }
 
-    //Roles
-    function addRole(bytes32 role, address account) public onlyAdmin {
-        _grantRole(role, account);
+    //Mint
+    function whiteListMint(uint256 _mintAmmount, bytes32[] calldata _proof) external payable mintCompliance(_mintAmmount) callerIsUser{
+        //TBW
     }
 
-    function revoRole(bytes32 role, address account) public onlyAdmin {
-       _revokeRole(role, account);
+    function publicMint(uint256 _mintAmmount, bytes32[] calldata _proof) external payable mintCompliance(_mintAmmount) callerIsUser{
+        //TBW
     }
 
-    //functions
-    function mint(uint256 _mintAmount) public payable mintConditional(_mintAmount){
-        require(!paused,"ASC is on Pause!");
-        require(msg.value >= cost * _mintAmount, "Insufficient funds!");
-
-        _mintFunction(msg.sender, _mintAmount);
+    function givaweyMint(uint256 _mintAmmount, address _reciver) public mintCompliance(_mintAmmount) onlyOwner{
+        _safeMint(_reciver, _mintAmmount);
     }
 
-    function givaweyMint(uint256 _mintAmount, address _reciver) public mintConditional(_mintAmount) onlyCommunity{
-        _mintFunction(_reciver, _mintAmount);
-    } 
-
-    function reveal(bool _newState) public onlyAdmin {
-        revealed = _newState;
+    //Miscellaneous
+    function selectPhase(uint _phase) external onlyOwner{
+        salesPhase = phase(_phase);
     }
 
-    function setCost(uint256 _newCost) public onlyAdmin {
-        cost = _newCost;
-    }
-
-    function setmaxMintAmount(uint256 _newmaxMintAmount) public onlyAdmin {
-        maxMintAmount = _newmaxMintAmount;
-    }
-
-    function setBaseExtension(string memory _newBaseExtension)
-        public
-        onlyAdmin
-    {
-        baseExtension = _newBaseExtension;
-    }
-
-    function setBaseURI(string memory _newBaseURI) public onlyAdmin {
-        baseURI = _newBaseURI;
-    }
-
-    function setNotRevealedURI(string memory _notRevealedURI) public onlyAdmin {
-        notRevealedUri = _notRevealedURI;
-    }
-    
-    function pause(bool _state) public onlyAdmin {
+    function setPaused(bool _state) public onlyOwner {
         paused = _state;
     }
 
-    function _mintFunction(address _reciver, uint256 _mintAmount) internal {
-        for (uint256 i = 0; i < _mintAmount; i++) {
-        supply.increment();
-        _safeMint(_reciver, supply.current());
+    function setRevealed(bool _state) public onlyOwner {
+        revealed = _state;
+    }
+
+    //Whitelist
+    function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        merkleRoot = _merkleRoot;
+    }
+
+    function isWhiteListed(address _account, bytes32[] calldata _proof) internal view returns(bool) {
+        return _verify(leaf(_account), _proof);
+    }
+
+    function leaf(address _account) internal pure returns(bytes32) {
+        return keccak256(abi.encodePacked(_account));
+    }
+
+    function _verify(bytes32 _leaf, bytes32[] memory _proof) internal view returns(bool) {
+        return MerkleProof.verify(_proof, merkleRoot, _leaf);
+    }
+
+    //withdrawal
+    function withdrawalsAll() external {
+        for(uint i = 0 ; i < teamLength ; i++) {
+            release(payable(payee(i)));
         }
     }
 
-    //Overide Interface
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
-        super._beforeTokenTransfer(from, to, tokenId);
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, AccessControl, ERC721Enumerable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
 }
