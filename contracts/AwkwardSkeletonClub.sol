@@ -93,12 +93,12 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
         _safeMint(msg.sender, _mintAmmount);
     }
 
-    function givaweyMint(uint256 _mintAmmount, address _reciver) public mintCompliance(_mintAmmount) onlyOwner{
+    function givaweyMint(uint256 _mintAmmount, address _reciver) external mintCompliance(_mintAmmount) onlyOwner{
         _safeMint(_reciver, _mintAmmount);
     }
 
     //Miscellaneous
-    function walletOfOwner(address _owner) public view returns (uint256[] memory) {
+    function walletOfOwner(address _owner) external view returns (uint256[] memory) {
     uint256 ownerTokenCount = balanceOf(_owner);
     uint256[] memory ownedTokenIds = new uint256[](ownerTokenCount);
     uint256 currentTokenId = _startTokenId();
@@ -132,7 +132,7 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
         salesPhase = Phase(_phase);
     }
 
-    function setPaused(bool _state) public onlyOwner {
+    function setPaused(bool _state) external onlyOwner {
         paused = _state;
     }
 
@@ -140,7 +140,7 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
         baseURI = _baseURI;
     }
 
-    function setHiddenMetadataUri(string memory _hiddenURI) public onlyOwner {
+    function setHiddenMetadataUri(string memory _hiddenURI) external onlyOwner {
         hiddenURI = _hiddenURI;
     }
 
@@ -157,7 +157,7 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
         : '';
     }
 
-    function setRevealed(bool _state) public onlyOwner {
+    function setRevealed(bool _state) external onlyOwner {
         revealed = _state;
     }
 
