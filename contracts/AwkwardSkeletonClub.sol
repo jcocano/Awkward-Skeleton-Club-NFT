@@ -225,7 +225,7 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
       return hiddenURI;
     } 
 
-    string memory currentBaseURI = _baseURI();
+    string memory currentBaseURI = baseURI;
     return bytes(currentBaseURI).length > 0
         ? string(abi.encodePacked(currentBaseURI, _tokenId.toString(), ".json"))
         : '';
