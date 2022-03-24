@@ -110,8 +110,13 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
     bool public paused = true;
     bool public revealed = false;
 
+    address private royaltyReceiver;
+    uint96 private royaltyFeesInBeeps = 500;
 
     bytes32 public merkleRoot;
+
+    bytes4 private constant _INTERFACE_ID_ERC2981 = 0x2a55205a;
+
 
     mapping(address => uint256) public totalPublicMint;
     mapping(address => uint256) public totalWhitelistMint;
@@ -259,4 +264,41 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
         }
     }
 
+    //Implementing Royalty Interface (EIP2891)
+    function supportsInterface(bytes4 interfaceId) 
+        public 
+        view 
+        virtual 
+        override (ERC721A)
+        returns (bool) 
+    {
+        if (interfaceId == _INTERFACE_ID_ERC2981) {
+            return true;
+        }
+        return super.supportsInterface(interfaceId);
+    }
+
+    //RoyaltyInfo
+    function royaltyInfo(
+        uint256 _tokenId,
+        uint256 _salePrice
+    ) external view returns (
+        address receiver,
+        uint256 royaltyAmount
+        ){
+        require(_exists(_tokenId), "ERC2981Royality: Cannot query non-existent token");
+        return (royaltyReceiver, calculatingRoyalties(_salePrice));
+    }
+
+    function calculatingRoyalties(uint256 _salePrice) view public returns (uint256) {
+        return (_salePrice / 10000) * royaltyFeesInBeeps;
+    }
+
+    function setRoyalty(uint96 _royaltyFeesInBeeps) external onlyOwner {
+        royaltyFeesInBeeps = _royaltyFeesInBeeps;
+    }
+
+    function setRoyaltyReceiver(address _receiver) external onlyOwner{
+        royaltyReceiver = _receiver;
+    }
 }
