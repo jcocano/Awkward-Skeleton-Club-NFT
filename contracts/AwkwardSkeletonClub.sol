@@ -104,8 +104,8 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
     uint private constant MAXSUPPLY = 7373;
     uint private constant MAXMINTPERTX = 10;
 
-    uint public wlprice = 0.03 ether;
-    uint public pubprice = 0.04 ether;
+    uint public wlprice = 0.02 ether;
+    uint public pubprice = 0.03 ether;
 
     bool public paused = true;
     bool public revealed = false;
