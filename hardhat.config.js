@@ -6,6 +6,12 @@ const privateKey = process.env.DEPLOYER_SIGNER_PRIVATE_KEY
 
 module.exports = {
   solidity: "0.8.12",
+  settings:{
+    optimizer: {
+      enabled: true,
+      runs: 200,
+    }
+  },
   networks: {
     rinkeby:{
       url: `https://rinkeby.infura.io/v3/${projectId}`,

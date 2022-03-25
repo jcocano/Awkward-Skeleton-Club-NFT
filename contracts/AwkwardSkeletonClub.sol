@@ -279,15 +279,13 @@ contract AwkwardSkeletonClub is Ownable, ERC721A, PaymentSplitter{
     }
 
     //RoyaltyInfo
-    function royaltyInfo(
-        uint256 _tokenId,
-        uint256 _salePrice
-    ) external view returns (
-        address receiver,
-        uint256 royaltyAmount
-        ){
+    function royaltyInfo(uint256 _tokenId, uint256 _salePrice)
+        external
+        view
+        returns (address receiver, uint256 royaltyAmount)
+    {
         require(_exists(_tokenId), "ERC2981Royality: Cannot query non-existent token");
-        return (royaltyReceiver, calculatingRoyalties(_salePrice));
+        return (royaltyReceiver, (_salePrice * royaltyFeesInBeeps) / 10000);
     }
 
     function calculatingRoyalties(uint256 _salePrice) view public returns (uint256) {
